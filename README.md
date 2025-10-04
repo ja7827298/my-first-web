@@ -13,12 +13,12 @@
 >
 > 禁止随意转载或商用
 
+通过网盘分享的文件：计算器
+链接: https://pan.baidu.com/s/18OJJ3f57k3g01zAmPN399Q 提取码: mawa
 
 
 
 
-通过网盘分享的文件：10000行的Hello World
-链接: https://pan.baidu.com/s/1vDiw3-oC1icfaM87tSF2Kg 提取码: mawa
 
 # 小工具
 
@@ -64,3 +64,58 @@
 
 
 名称：不会飞的大疆mini 2 se
+
+# 开源项目计算器
+
+```python
+
+```
+
+def add(x, y):
+    return x + y
+
+def subtract(x, y):
+    return x - y
+
+def multiply(x, y):
+    return x * y
+
+def divide(x, y):
+    if y == 0:
+        return "错误：除数不能为零"
+    return x / y
+
+def main():
+    print("简单计算器")
+    print("可用操作：加法 (+), 减法 (-), 乘法 (*), 除法 (/), 退出 (q)")
+
+    while True:
+        operation = input("请输入操作 (+, -, *, /, q): ").strip()
+        if operation == 'q':
+            print("退出计算器，再见！")
+            break
+    
+        if operation not in ['+', '-', '*', '/']:
+            print("无效的操作，请重新输入。")
+            continue
+    
+        try:
+            num1 = float(input("请输入第一个数字: "))
+            num2 = float(input("请输入第二个数字: "))
+        except ValueError:
+            print("输入无效，请输入数字。")
+            continue
+    
+        if operation == '+':
+            result = add(num1, num2)
+        elif operation == '-':
+            result = subtract(num1, num2)
+        elif operation == '*':
+            result = multiply(num1, num2)
+        elif operation == '/':
+            result = divide(num1, num2)
+    
+        print(f"结果: {result}")
+
+if __name__ == '__main__':
+    main()
