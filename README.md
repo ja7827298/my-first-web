@@ -14,9 +14,8 @@
 > 禁止随意转载或商用
 
 通过网盘分享的文件：10000行的Hello World
-链接: https://pan.baidu.com/s/1GbRtkqkHhEs5kY4un-IMIw提取码: mawa
 
-
+ 链接: https://pan.baidu.com/s/1uD-iXACfDdMaxYp8qS58Mg 提取码: mawa
 
 
 
@@ -129,7 +128,7 @@ def main():
         
         if __name__ == '__main__':
         main()
-        
+
 
 ## 10.5日更新
 
