@@ -992,29 +992,412 @@ if __name__ == '__main__':
 
 ```
 
-![image-20251005132833570](C:\Users\Admin\AppData\Roaming\Typora\typora-user-images\image-20251005132833570.png)
+# 集大成之作（憋了一寒假）
+
+# 游戏：A dmin（解密，Meta)   
+
+源码3.0.0 game3
+
+```
+input("什么是真的，什么是假的？")
+input("你真的把他除掉了吗")
+input("HELLO EVERYONE!")
+input("I CANNOT DIE!!!")
+input("GAME IS NOT OVER")
+input("cmd:del a dmin")
+input("NOW,GAME 3 START")
+#游戏1
+import pygame
+import random
+import sys
+import time
+import math
+
+# 初始化pygame
+pygame.init()
+
+# ===================== 节奏医生风格配置 =====================
+# 窗口尺寸（匹配节奏医生经典尺寸）
+WINDOW_WIDTH, WINDOW_HEIGHT = 640, 480
+FPS = 60
+TARGET_SIZE = 40  # 缩小目标，增加难度
+BASE_SCORE = 1
+WIN_SCORE = 1        # 通关分数改为80分
+TIME_LIMIT = 90       # 时间限制（1分30秒）
+FINAL_PHASE_TIME = 20 # 最后20秒触发绕屏跑步
+
+# 移动效果参数
+# 前期（前70秒）简单抖动参数
+SHAKE_SPEED = 8       # 简单抖动速度
+SHAKE_AMPLITUDE = 20  # 简单抖动幅度
+# 后期（最后20秒）绕屏跑步参数
+RUN_SPEED = 12        # 跑步移动速度（越快越冲刺）
+RUN_RANGE = 800       # 窗口移动的总范围（超过屏幕宽度）
+FINAL_SHAKE_INTENSITY = 6   # 后期叠加抖动强度
+FINAL_SHAKE_FREQUENCY = 0.2 # 后期抖动频率
+
+# 颜色定义
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+BLACK = (0, 0, 0)
+GREEN = (0, 255, 0)
+
+# ===================== 窗口初始化（居中+固定尺寸） =====================
+# 获取屏幕分辨率，计算窗口初始居中位置
+screen_info = pygame.display.Info()
+SCREEN_WIDTH = screen_info.current_w
+SCREEN_HEIGHT = screen_info.current_h
+INIT_WIN_X = (SCREEN_WIDTH - WINDOW_WIDTH) // 2  # 初始居中X
+INIT_WIN_Y = (SCREEN_HEIGHT - WINDOW_HEIGHT) // 2 # 初始居中Y
+
+# 创建固定尺寸窗口
+screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.NOFRAME)  # 无边框更贴近原作
+try:
+    from pygame._sdl2 import Window
+    window = Window.from_display_module()
+    window.position = (INIT_WIN_X, INIT_WIN_Y)  # 初始居中
+    WINDOW_AVAILABLE = True
+except ImportError:
+    # 兼容旧版本Pygame，用画面偏移模拟
+    WINDOW_AVAILABLE = False
+    move_offset_x, move_offset_y = 0, 0
+    # 旧版本添加窗口边框
+    screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+
+pygame.display.set_caption("节奏医生 2-X - 分段移动挑战")
+clock = pygame.time.Clock()
+
+# 设置字体
+try:
+    font_large = pygame.font.Font(None, 64)
+    font_medium = pygame.font.Font(None, 38)
+    font_small = pygame.font.SysFont("Arial", 28)
+except:
+    font_large = pygame.font.SysFont("Arial", 64)
+    font_medium = pygame.font.SysFont("Arial", 38)
+    font_small = pygame.font.SysFont("Arial", 28)
+
+# ===================== 游戏变量初始化 =====================
+def init_game_variables():
+    """初始化/重置所有游戏变量"""
+    global score, start_time, game_over, win, target_x, target_y
+    global current_win_x, shake_phase, phase_shake_counter
+    # 基础游戏变量
+    score = 0
+    start_time = time.time()
+    game_over = False
+    win = False
+    target_x = random.randint(TARGET_SIZE//2, WINDOW_WIDTH - TARGET_SIZE//2)
+    target_y = random.randint(TARGET_SIZE//2, WINDOW_HEIGHT - TARGET_SIZE//2)
+    
+    # 移动效果变量
+    current_win_x = INIT_WIN_X  # 窗口当前X坐标（初始居中）
+    shake_phase = 0             # 后期抖动相位
+    phase_shake_counter = 0     # 前期抖动计数器
+
+# 初始化游戏
+init_game_variables()
+
+# ===================== 辅助函数 =====================
+def draw_text(text, font, color, surface, x, y):
+    """绘制文字的辅助函数"""
+    text_obj = font.render(text, True, color)
+    text_rect = text_obj.get_rect(center=(x, y))
+    surface.blit(text_obj, text_rect)
+
+def window_move_effect(remaining_time):
+    """分阶段窗口移动效果：前70秒简单抖动，最后20秒绕屏跑步"""
+    global current_win_x, shake_phase, phase_shake_counter, move_offset_x, move_offset_y
+    
+    if remaining_time <= FINAL_PHASE_TIME:
+        # 最后20秒：绕屏跑步 + 叠加抖动
+        # 1. 基础绕屏跑步：向右移动，超出范围后从左侧回归
+        current_win_x += RUN_SPEED
+        if current_win_x > SCREEN_WIDTH + RUN_RANGE - WINDOW_WIDTH:
+            current_win_x = INIT_WIN_X - RUN_RANGE  # 从左侧外开始回归
+        
+        # 2. 叠加快速小抖动
+        shake_phase += FINAL_SHAKE_FREQUENCY
+        shake_x = math.sin(shake_phase) * FINAL_SHAKE_INTENSITY
+        shake_y = math.cos(shake_phase * 1.5) * FINAL_SHAKE_INTENSITY
+        
+        # 最终窗口位置
+        final_x = current_win_x + shake_x
+        final_y = INIT_WIN_Y + shake_y
+    else:
+        # 前70秒：简单随机抖动（无绕屏）
+        phase_shake_counter += 1
+        # 正弦曲线实现平滑的简单抖动
+        shake_x = math.sin(phase_shake_counter * 0.05) * SHAKE_AMPLITUDE
+        shake_y = math.cos(phase_shake_counter * 0.07) * SHAKE_AMPLITUDE
+        
+        # 窗口保持在居中位置附近抖动
+        final_x = INIT_WIN_X + shake_x
+        final_y = INIT_WIN_Y + shake_y
+    
+    # 应用到窗口/画面
+    if WINDOW_AVAILABLE:
+        window.position = (int(final_x), int(final_y))
+    else:
+        # 旧版本：计算相对偏移量
+        move_offset_x = int(final_x - INIT_WIN_X)
+        move_offset_y = int(final_y - INIT_WIN_Y)
+
+def format_time(seconds):
+    """格式化时间为 MM:SS 格式"""
+    mins = seconds // 60
+    secs = seconds % 60
+    return f"{int(mins)}:{int(secs):02d}"
+
+# ===================== 游戏主循环 =====================
+running = True
+while running:
+    clock.tick(FPS)
+    
+    # 计算剩余时间
+    elapsed_time = time.time() - start_time
+    remaining_time = max(0, TIME_LIMIT - elapsed_time)
+    
+    # 游戏结束判定（通关分数改为80分）
+    if not game_over:
+        if score >= WIN_SCORE:
+            game_over = True
+            win = True
+            pygame.time.delay(1000)
+            running = False
+        elif remaining_time <= 0:
+            game_over = True
+            win = False
+            pygame.time.delay(1000)
+            init_game_variables()
+    
+    # 事件处理
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        # 按ESC退出
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                running = False
+        
+        # 鼠标点击得分
+        if event.type == pygame.MOUSEBUTTONDOWN and not game_over:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            # 修正偏移的点击判定
+            click_x = mouse_x - move_offset_x if not WINDOW_AVAILABLE else mouse_x
+            click_y = mouse_y - move_offset_y if not WINDOW_AVAILABLE else mouse_y
+            
+            if (target_x - TARGET_SIZE//2 < click_x < target_x + TARGET_SIZE//2 and
+                target_y - TARGET_SIZE//2 < click_y < target_y + TARGET_SIZE//2):
+                score += BASE_SCORE
+                # 随机更换目标位置
+                target_x = random.randint(TARGET_SIZE//2, WINDOW_WIDTH - TARGET_SIZE//2)
+                target_y = random.randint(TARGET_SIZE//2, WINDOW_HEIGHT - TARGET_SIZE//2)
+    
+    # 运行分阶段窗口移动效果（仅游戏中）
+    if not game_over:
+        window_move_effect(remaining_time)
+    
+    # 绘制画面
+    screen.fill(WHITE)
+    
+    if not game_over:
+        # 绘制目标（修正偏移）
+        draw_x = target_x + move_offset_x if not WINDOW_AVAILABLE else target_x
+        draw_y = target_y + move_offset_y if not WINDOW_AVAILABLE else target_y
+        pygame.draw.circle(screen, RED, (draw_x, draw_y), TARGET_SIZE//2)
+        
+        # 绘制UI（更新通关目标为80分）
+        draw_text(f"分数: {score}", font_medium, BLACK, screen, WINDOW_WIDTH//4, 40)
+        draw_text(f"时间: {format_time(remaining_time)}", font_medium, BLACK, screen, 3*WINDOW_WIDTH//4, 40)
+        draw_text(f"目标: {WIN_SCORE}分", font_small, BLACK, screen, WINDOW_WIDTH//2, WINDOW_HEIGHT - 30)
+        
+        # 提示最后阶段
+        if remaining_time <= FINAL_PHASE_TIME:
+            draw_text("NONONO!", font_small, RED, screen, WINDOW_WIDTH//2, 80)
+    else:
+        # 失败界面
+        if not win:
+            draw_text("时间到!", font_large, RED, screen, WINDOW_WIDTH//2, WINDOW_HEIGHT//3)
+            draw_text(f"最终分数: {score}", font_medium, BLACK, screen, WINDOW_WIDTH//2, WINDOW_HEIGHT//2)
+            draw_text("即将重新开始...", font_small, BLACK, screen, WINDOW_WIDTH//2, 2*WINDOW_HEIGHT//3)
+    
+    pygame.display.flip()
+
+# ===================== 游戏结束 ==========
+input("NO")
+input("WE ONLY 2 GAMES!")
+input("hu----")
+input("GAME4 IS DIFFCULT!")
+a=input("你想玩吗Y/N")
+if a=="N":
+    input("ANDDDDDDDDDDDDDDDDDDDDD,WEEE")
+    input("WHAT?")
+    input("CMD:del all")
+    input("ERROR:404 服务器未找到")
+    input("BAD END 1 服务器丢失")
+    input("GAME OVER")
+else:
+    input("GAME 4 START")
+    input("PAINT PICTURE IS FUN")
+    input("LET US PLAY!")
+    input("SEE YOU IN GAME 4!")
+    input("OUT THERE!")
 
 
-
-#                                                         作者动态：累死啦10.5
-
+```
 
 
-
-
-
-
-#                                                                                                                                                开学啦
-
-​                                                                                                                         10.1 ---10.8            
 
 #                                                     
 
+game4
 
+```
+input("HELLO THERE")
+input("WELCOME TO GAME 4")
+# 弹出Windows系统通知（还原示例样式）
+from plyer import notification
+import time
 
+# 弹出Windows系统原生通知（适配Python 3.11+）
+notification.notify(
+    title="病毒和威胁防护",  # 通知标题
+    message="发现威胁",  # 通知内容
+    app_name="Windows Defender",  # 应用名称（显示在通知栏）
+    timeout=10  # 通知显示时长（秒）
+)
 
+# 等待通知显示（可选）
+time.sleep(5)
+input("I KNOW YOUR PC DO WHAT")
+input("THAT NOTICE")
+input("BUT DON'T BE AFRAID")
+input("GAME 4 COMING!!!")
+#画图   
+import subprocess
+import os
+import time
+import psutil
 
+def is_mspaint_running():
+    """检查画图应用是否正在运行"""
+    for proc in psutil.process_iter(['name']):
+        try:
+            if proc.info['name'] == "mspaint.exe":
+                return True
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+    return False
 
+def open_mspaint_app():
+    """打开画图应用"""
+    mspaint_path = "mspaint.exe"
+    subprocess.run(f'start "" "{mspaint_path}"', shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+
+def close_mspaint_app():
+    """彻底关闭画图应用的所有相关进程"""
+    for proc in psutil.process_iter(['pid', 'name']):
+        try:
+            if proc.info['name'] == "mspaint.exe":
+                proc.terminate()
+                # 等待进程终止（最多2秒），未终止则强制杀死
+                gone, alive = psutil.wait_procs([proc], timeout=2)
+                if alive:
+                    proc.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+
+if os.name == 'nt':
+    # 初始打开画图应用
+    open_mspaint_app()
+    
+    # 等待15秒，期间检测画图状态，关闭则重新打开
+    total_wait_time = 15
+    check_interval = 0.5
+    elapsed_time = 0
+    
+    while elapsed_time < total_wait_time:
+        if not is_mspaint_running():
+            open_mspaint_app()
+        time.sleep(check_interval)
+        elapsed_time += check_interval
+    
+    # 15秒时长到，强制关闭画图
+    if is_mspaint_running():
+        close_mspaint_app()
+        # 二次检查防止重启
+        time.sleep(1)
+        if is_mspaint_running():
+            close_mspaint_app()  
+input("GREAT JOB")
+input("SEE YOU NEXT TIME!")
+```
+
+game5
+
+```
+input("THIS IS THE LAST GAME")
+input("CMD:del computer files")
+# 弹出Windows系统通知（还原示例样式）
+from plyer import notification
+import time
+
+# 弹出Windows系统原生通知（适配Python 3.11+）
+notification.notify(
+    title="病毒和威胁防护",  # 通知标题
+    message="发现威胁",  # 通知内容
+    app_name="Windows Defender",  # 应用名称（显示在通知栏）
+    timeout=10  # 通知显示时长（秒）
+)
+
+# 等待通知显示（可选）
+time.sleep(5)
+input("I DEL YOUR COMPUTER FILES")
+input("youuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu")
+input("BAD END 2 作弊")
+import os
+import platform
+import subprocess
+
+def force_shutdown_immediately():
+    """
+    无警告、无确认 瞬间强制关机（极度危险！）
+    """
+    system = platform.system()
+    try:
+        if system == "Windows":
+            # Windows 无提示强制瞬间关机
+            subprocess.run(
+                ["shutdown", "/s", "/f", "/t", "0"],
+                check=True,
+                creationflags=subprocess.CREATE_NO_WINDOW,  # 隐藏命令行窗口
+                stdout=subprocess.DEVNULL,  # 屏蔽输出
+                stderr=subprocess.DEVNULL   # 屏蔽错误提示
+            )
+        elif system == "Darwin":  # macOS
+            # macOS 强制关机（仍需sudo密码，系统机制无法绕过）
+            subprocess.run(
+                ["sudo", "shutdown", "-h", "now"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        elif system == "Linux":
+            # Linux 强制关机（仍需sudo密码）
+            subprocess.run(
+                ["sudo", "shutdown", "-h", "now"],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+    except:
+        # 屏蔽所有错误提示
+        pass
+
+# 直接执行关机（无任何提示/确认）
+force_shutdown_immediately()
+```
 
 
 
